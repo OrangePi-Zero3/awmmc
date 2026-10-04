@@ -1,0 +1,8 @@
+tests/test_core
+tests/test_flow
+ARM64/
+x64/
+*.obj
+*.pdb
+*.cat
+*.sys

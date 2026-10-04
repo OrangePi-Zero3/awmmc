@@ -1,0 +1,139 @@
+; awmmc.inx -- INF source for the Allwinner SMHC (H616/H618) SD/MMC host controller miniport.
+;
+; Matches the ACPI device  ACPI\AWMC0001  (SDC0, SMHC0 on the Orange Pi Zero 3).
+; Process with stampinf (done by the WDK build) to get awmmc.inf.
+;
+; Structure follows Microsoft's sdhc.inx sample and the dwcmshc.inx DesignWare miniport.
+
+[Version]
+Signature   = "$Windows NT$"
+Class       = SDHost
+ClassGUID   = {a0a588a4-c46f-4b37-b7ea-c82fe89870c6}
+Provider    = %ProviderString%
+CatalogFile = awmmc.cat
+PnpLockdown = 1
+
+[SourceDisksNames]
+1 = Disk
+
+[SourceDisksFiles]
+awmmc.sys = 1
+
+[Manufacturer]
+%Allwinner% = Allwinner, NT$ARCH$.10.0...16299
+
+[ControlFlags]
+ExcludeFromSelect = *
+
+;
+; Models
+;
+
+[Allwinner.NT$ARCH$.10.0...16299]
+%AWMC0001.DeviceDesc% = SMHC, ACPI\AWMC0001
+
+;
+; Service
+;
+
+[awmmc_Service_Inst]
+ServiceType    = %SERVICE_KERNEL_DRIVER%
+StartType      = %SERVICE_BOOT_START%
+ErrorControl   = %SERVICE_ERROR_NORMAL%
+ServiceBinary  = %13%\awmmc.sys
+LoadOrderGroup = System Bus Extender
+AddReg         = AWMC_ServiceReg
+
+[AWMC_ServiceReg]
+; CM_SERVICE_SD_DISK_BOOT_LOAD: lets the OS load this driver early when it boots from the SD card.
+HKR,,BootFlags,0x00010003,0x00000008
+
+;
+; Command flags consumed by sdport (identical to the Microsoft sdhc.inx / dwcmshc.inx tables).
+;
+; SDCMDF_VALID_FOR_MEMORY    0x01 // Command can be used for memory devices
+; SDCMDF_VALID_FOR_SDIO      0x02 // Command can be used for SDIO devices
+; SDCMDF_WRITE_PROTECT       0x04 // Command cannot be issued when write protect switch is on
+; SDCMDF_NEEDS_STANDBY_STATE 0x08 // Command requires we first deselect the card
+; SDCMDF_SUPPLY_RCA          0x10 // Command needs the RCA for an argument
+;
+HKR,Parameters,SdCmdFlags,1,    05,01, 06,01, 08,11, 09,19, 0A,19, 0D,11, \
+                                10,01, 11,01, 12,01, 17,01, 18,05, 19,05, \
+                                1A,01, 1B,01, 1C,01, \
+                                20,05, 21,05, 26,05, \
+                                2A,01, \
+                                34,02, 35,02, \
+                                37,01, 38,01, \
+                                22,01, 23,05, 24,01, 25,01
+
+HKR,Parameters,SdAppCmdFlags,1, 06,01, 0D,01, 16,01, 17,01, 33,01, \
+                                12,01, 19,01, 1A,01, 26,01, 2B,01, \
+                                2C,01, 2D,01, 2E,01, 2F,01, 30,01, 31,01
+
+;
+; Files
+;
+
+[AWMC_CopyFiles]
+awmmc.sys
+
+[DestinationDirs]
+AWMC_CopyFiles = 13
+
+;
+; Device install
+;
+
+[SMHC]
+CopyFiles = AWMC_CopyFiles
+AddReg    = AWMC_Reg
+
+[AWMC_Reg]
+HKR,,Driver,,"awmmc.sys"
+
+[SMHC.Services]
+AddService = awmmc, 2, awmmc_Service_Inst
+
+[SMHC.HW]
+AddReg = AWMC_LocationReg
+AddReg = AWMC_Params
+
+[AWMC_LocationReg]
+HKR,,UINumberDescFormat,,%AWMC_Slot%
+
+;
+; Per-device tunables, read from the device (hardware) registry key by the driver.
+;
+;   TransferMode     0 = PIO only (bring-up default), 1 = IDMAC scatter/gather DMA
+;   ModuleClockHz    SMHC0 module clock left by firmware (mu-silicium: 24 MHz).  The driver does not
+;                    own the clock tree; a wrong value gives a wrong card clock.
+;   MaxFrequencyKhz  upper bound for the card clock; effective maximum is also limited by ModuleClockHz.
+;
+; The 0x00010003 flag (REG_DWORD | NOCLOBBER) keeps values edited after installation.
+;
+[AWMC_Params]
+HKR,,TransferMode,0x00010003,0
+HKR,,ModuleClockHz,0x00010003,24000000
+HKR,,MaxFrequencyKhz,0x00010003,50000
+
+[Strings]
+;
+; Localizable strings
+;
+
+Allwinner            = "Allwinner"
+AWMC0001.DeviceDesc  = "Allwinner SMHC SD/MMC Host Controller"
+AWMC_Slot            = "SD Host Slot %1!u!"
+ProviderString       = "TODO-Set-Provider"
+
+;
+; Non-localizable strings
+;
+
+SERVICE_KERNEL_DRIVER = 1
+SERVICE_BOOT_START    = 0
+SERVICE_SYSTEM_START  = 1
+SERVICE_DEMAND_START  = 3
+SERVICE_ERROR_NORMAL  = 1
+SERVICE_ERROR_IGNORE  = 0
+REG_DWORD             = 0x00010001

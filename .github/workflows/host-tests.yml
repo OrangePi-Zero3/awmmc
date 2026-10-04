@@ -1,0 +1,16 @@
+name: host-tests
+
+# Compiles the driver sources against the host mock of ntddk.h/sdport.h and runs the unit tests
+# and the register-level flow tests.  This is NOT a WDK build; see tests/README.md.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run
+        run: make -C tests check
